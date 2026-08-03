@@ -1209,6 +1209,35 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
                 ),
             ),
         )
+    elif provider == ServiceProviders.PERSONAPLEX_REALTIME.value:
+        from api.services.pipecat.realtime.personaplex_realtime import (
+            DograhPersonaPlexRealtimeLLMService,
+        )
+
+        base_url = getattr(realtime_config, "base_url", None) or ""
+        if not str(base_url).strip():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "NVIDIA PersonaPlex requires base_url "
+                    "(e.g. wss://<pod>-8998.proxy.runpod.net)."
+                ),
+            )
+        _validate_runtime_service_url(base_url, "base_url")
+        text_prompt = getattr(realtime_config, "text_prompt", None)
+        sample_rate = getattr(audio_config, "pipeline_sample_rate", None) or getattr(
+            audio_config, "transport_out_sample_rate", None
+        )
+        return DograhPersonaPlexRealtimeLLMService(
+            base_url=base_url,
+            api_key=api_key,
+            sample_rate=sample_rate,
+            settings=DograhPersonaPlexRealtimeLLMService.Settings(
+                model=model or "nvidia/personaplex-7b-v1",
+                voice=voice or "NATF2",
+                text_prompt=text_prompt,
+            ),
+        )
     else:
         raise HTTPException(
             status_code=400, detail=f"Invalid realtime LLM provider {provider}"

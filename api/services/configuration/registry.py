@@ -94,6 +94,7 @@ class ServiceProviders(str, Enum):
     GOOGLE_REALTIME = "google_realtime"
     GOOGLE_VERTEX_REALTIME = "google_vertex_realtime"
     AZURE_REALTIME = "azure_realtime"
+    PERSONAPLEX_REALTIME = "personaplex_realtime"
     SMALLEST = "smallest"
     XAI = "xai"
     LMNT = "lmnt"
@@ -126,6 +127,7 @@ class BaseServiceConfiguration(BaseModel):
         ServiceProviders.GOOGLE_REALTIME,
         ServiceProviders.GOOGLE_VERTEX_REALTIME,
         ServiceProviders.AZURE_REALTIME,
+        ServiceProviders.PERSONAPLEX_REALTIME,
         ServiceProviders.SARVAM,
         ServiceProviders.SMALLEST,
         ServiceProviders.XAI,
@@ -307,6 +309,15 @@ AZURE_REALTIME_PROVIDER_MODEL_CONFIG = provider_model_config(
     "Azure OpenAI Realtime",
     description="Azure OpenAI Realtime API — low-latency speech-to-speech conversations.",
     provider_docs_url="https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/realtime-audio-quickstart",
+)
+PERSONAPLEX_REALTIME_PROVIDER_MODEL_CONFIG = provider_model_config(
+    "NVIDIA PersonaPlex (Experimental)",
+    description=(
+        "Self-hosted NVIDIA PersonaPlex-7B full-duplex speech-to-speech via moshi.server. "
+        "Point base_url at your GPU host (e.g. RunPod). No tool calling in v1. "
+        "Start the pod only when demos need it."
+    ),
+    provider_docs_url="https://research.nvidia.com/labs/adlr/personaplex/",
 )
 
 OPENAI_MODELS = [
@@ -840,6 +851,74 @@ class AzureRealtimeLLMConfiguration(BaseLLMConfiguration):
     )
 
 
+PERSONAPLEX_REALTIME_MODELS = ["nvidia/personaplex-7b-v1"]
+PERSONAPLEX_REALTIME_VOICES = [
+    "NATF0",
+    "NATF1",
+    "NATF2",
+    "NATF3",
+    "NATM0",
+    "NATM1",
+    "NATM2",
+    "NATM3",
+    "VARF0",
+    "VARF1",
+    "VARF2",
+    "VARF3",
+    "VARF4",
+    "VARM0",
+    "VARM1",
+    "VARM2",
+    "VARM3",
+    "VARM4",
+]
+
+
+@register_service(ServiceType.REALTIME)
+class PersonaPlexRealtimeLLMConfiguration(BaseLLMConfiguration):
+    model_config = PERSONAPLEX_REALTIME_PROVIDER_MODEL_CONFIG
+    provider: Literal[ServiceProviders.PERSONAPLEX_REALTIME] = (
+        ServiceProviders.PERSONAPLEX_REALTIME
+    )
+    model: str = Field(
+        default="nvidia/personaplex-7b-v1",
+        description="Label for telemetry and UI. Weights stay on your GPU host, not Dograh.",
+        json_schema_extra={
+            "examples": PERSONAPLEX_REALTIME_MODELS,
+            "allow_custom_input": True,
+        },
+    )
+    base_url: str = Field(
+        description=(
+            "WSS origin of your moshi.server (e.g. wss://<pod>-8998.proxy.runpod.net). "
+            "Required. Dograh connects outbound only; HF tokens and weights stay on the host."
+        ),
+    )
+    voice: str = Field(
+        default="NATF2",
+        description="PersonaPlex voice preset (voice_prompt query param).",
+        json_schema_extra={
+            "examples": PERSONAPLEX_REALTIME_VOICES,
+            "allow_custom_input": True,
+        },
+    )
+    text_prompt: str | None = Field(
+        default=None,
+        description=(
+            "Optional static persona seed for connect-time text_prompt. "
+            "Node system prompt can override/merge at runtime."
+        ),
+        json_schema_extra={"multiline": True},
+    )
+    api_key: str | list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional bearer token for your GPU gateway only. "
+            "Not an Hugging Face token — leave blank if the host is open on the proxy URL."
+        ),
+    )
+
+
 REALTIME_PROVIDERS = {
     ServiceProviders.OPENAI_REALTIME.value,
     ServiceProviders.GROK_REALTIME.value,
@@ -847,6 +926,7 @@ REALTIME_PROVIDERS = {
     ServiceProviders.GOOGLE_REALTIME.value,
     ServiceProviders.GOOGLE_VERTEX_REALTIME.value,
     ServiceProviders.AZURE_REALTIME.value,
+    ServiceProviders.PERSONAPLEX_REALTIME.value,
 }
 
 
@@ -877,6 +957,7 @@ RealtimeConfig = Annotated[
         GoogleRealtimeLLMConfiguration,
         GoogleVertexRealtimeLLMConfiguration,
         AzureRealtimeLLMConfiguration,
+        PersonaPlexRealtimeLLMConfiguration,
     ],
     Field(discriminator="provider"),
 ]

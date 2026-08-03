@@ -249,6 +249,10 @@ def _create_realtime_user_turn_config(provider: str):
         # Ultravox does not emit user-turn frames, so local VAD supplies
         # lifecycle signals for Dograh observers/controllers.
         return local_vad_turn_config(enable_interruptions=True)
+    if provider == ServiceProviders.PERSONAPLEX_REALTIME.value:
+        # PersonaPlex/Moshi is full-duplex and does not emit Dograh turn
+        # frames; local Silero VAD supplies lifecycle + barge-in like Ultravox.
+        return local_vad_turn_config(enable_interruptions=True)
 
     return local_vad_turn_config(enable_interruptions=True)
 

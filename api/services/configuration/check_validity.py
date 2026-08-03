@@ -60,6 +60,7 @@ class UserConfigurationValidator:
             ServiceProviders.GOOGLE_REALTIME.value: self._check_google_api_key,
             ServiceProviders.GOOGLE_VERTEX_REALTIME.value: self._check_google_vertex_realtime_api_key,
             ServiceProviders.AZURE_REALTIME.value: self._check_azure_realtime_api_key,
+            ServiceProviders.PERSONAPLEX_REALTIME.value: self._check_personaplex_realtime_config,
             ServiceProviders.ASSEMBLYAI.value: self._check_assemblyai_api_key,
             ServiceProviders.GLADIA.value: self._check_gladia_api_key,
             ServiceProviders.RIME.value: self._check_rime_api_key,
@@ -132,6 +133,22 @@ class UserConfigurationValidator:
         if provider == ServiceProviders.SPEACHES.value:
             try:
                 if not self._check_speaches_api_key(provider, service_config):
+                    return [
+                        {
+                            "model": service_name,
+                            "message": f"Invalid {provider} configuration",
+                        }
+                    ]
+            except ValueError as e:
+                return [{"model": service_name, "message": str(e)}]
+            return []
+
+        # PersonaPlex is self-hosted: require base_url only; no live GPU handshake on save
+        if provider == ServiceProviders.PERSONAPLEX_REALTIME.value:
+            try:
+                if not self._check_personaplex_realtime_config(
+                    provider, service_config
+                ):
                     return [
                         {
                             "model": service_name,
@@ -446,6 +463,16 @@ class UserConfigurationValidator:
     def _check_speaches_api_key(self, model: str, service_config) -> bool:
         if not getattr(service_config, "base_url", None):
             raise ValueError("base_url is required for Speaches services")
+        return True
+
+    def _check_personaplex_realtime_config(self, model: str, service_config) -> bool:
+        """Config-only check: base_url required; do not probe the GPU host on save."""
+        base_url = getattr(service_config, "base_url", None)
+        if not base_url or not str(base_url).strip():
+            raise ValueError(
+                "base_url is required for NVIDIA PersonaPlex (e.g. "
+                "wss://<pod>-8998.proxy.runpod.net). Start the GPU host only when demos need it."
+            )
         return True
 
     def _check_huggingface_api_key(self, model: str, api_key: str) -> bool:
